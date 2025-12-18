@@ -1,0 +1,154 @@
+name: Security Checks
+
+on:
+  push:
+    branches: ['main', 'feature/**']
+  pull_request:
+    branches: ['main']
+  schedule:
+    # Run weekly on Mondays at 00:00 UTC
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scanning
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Scan for secrets (AWS keys)
+        run: |
+          echo "Scanning for AWS access keys..."
+          if grep -r "AKIA" . --exclude-dir=.git --exclude="*.yml" --exclude="*.md"; then
+            echo "❌ AWS access key pattern detected!"
+            echo "Never commit secrets. Use environment variables or secrets management."
+            exit 1
+          fi
+          echo "✅ No AWS keys found"
+
+      - name: Scan for GitHub tokens
+        run: |
+          echo "Scanning for GitHub tokens..."
+          if grep -r "ghp_" . --exclude-dir=.git --exclude="*.yml" --exclude="*.md"; then
+            echo "❌ GitHub token pattern detected!"
+            echo "Never commit tokens. Use GitHub Secrets for automation."
+            exit 1
+          fi
+          echo "✅ No GitHub tokens found"
+
+      - name: Scan for generic secrets
+        run: |
+          echo "Scanning for common secret patterns..."
+          # Check for common secret keywords in non-example files
+          PATTERNS=("password=" "api_key=" "secret=" "token=" "private_key=")
+          FOUND=false
+
+          for pattern in "${PATTERNS[@]}"; do
+            if grep -ri "$pattern" . \
+              --exclude-dir=.git \
+              --exclude-dir=node_modules \
+              --exclude="*.md" \
+              --exclude="*.yml" \
+              --exclude="*.example" \
+              --exclude=".gitignore" | grep -v "TODO" | grep -v "EXAMPLE"; then
+              echo "❌ Potential secret found: $pattern"
+              FOUND=true
+            fi
+          done
+
+          if [ "$FOUND" = true ]; then
+            echo "Review the above findings. Use environment variables for secrets."
+            exit 1
+          fi
+          echo "✅ No generic secrets found"
+
+      - name: Check for application code
+        run: |
+          echo "Verifying template contains NO application code..."
+          # This is a template repository - should NOT contain app code
+
+          # Check for common app directories
+          if [ -d "src" ] || [ -d "app" ] || [ -d "lib" ] || [ -d "server" ]; then
+            echo "❌ Application code directory detected!"
+            echo "This template should NOT contain application code."
+            echo "Detected directories:"
+            ls -d src app lib server 2>/dev/null || true
+            exit 1
+          fi
+
+          # Check for Python app files
+          if find . -name "main.py" -o -name "app.py" -o -name "__init__.py" | grep -v ".git" | head -1; then
+            echo "⚠️ Warning: Python application files detected"
+            echo "Verify these are documentation examples, not actual app code."
+          fi
+
+          echo "✅ No application code directories found"
+
+      - name: Check for Red Hat branding
+        run: |
+          echo "Scanning for Red Hat branding..."
+          if grep -ri "Red Hat" . \
+            --exclude-dir=.git \
+            --exclude="security-checks.yml" \
+            --exclude="*.md" | grep -v "TODO"; then
+            echo "❌ Red Hat branding detected!"
+            echo "This template should be vendor-neutral."
+            exit 1
+          fi
+          echo "✅ No Red Hat branding found"
+
+      - name: Check for Amber terminology
+        run: |
+          echo "Scanning for 'Amber' terminology..."
+          # Allow in clarifications/historical docs, but not in active code
+          if grep -ri "amber" . \
+            --exclude-dir=.git \
+            --exclude="security-checks.yml" \
+            --exclude="spec.md" \
+            --exclude="clarifications" | grep -v "TODO"; then
+            echo "⚠️ 'Amber' terminology detected"
+            echo "Use 'Codebase Agent' or 'CBA' instead of 'Amber'"
+            echo ""
+            echo "Found in:"
+            grep -ri "amber" . \
+              --exclude-dir=.git \
+              --exclude="security-checks.yml" \
+              --exclude="spec.md" || true
+            exit 1
+          fi
+          echo "✅ No 'Amber' terminology found (using 'Codebase Agent' or 'CBA')"
+
+      - name: Check file permissions
+        run: |
+          echo "Checking for executable scripts..."
+          # All .sh files should be executable
+          NONEXEC=$(find scripts -name "*.sh" ! -perm -u+x 2>/dev/null)
+          if [ -n "$NONEXEC" ]; then
+            echo "❌ Non-executable scripts found:"
+            echo "$NONEXEC"
+            echo ""
+            echo "Fix: chmod +x scripts/*.sh"
+            exit 1
+          fi
+          echo "✅ All scripts are executable"
+
+      - name: Security scan summary
+        if: always()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "Security Scan Complete"
+          echo "========================================"
+          echo ""
+          echo "Checks performed:"
+          echo "  ✓ AWS access key patterns"
+          echo "  ✓ GitHub token patterns"
+          echo "  ✓ Generic secret patterns"
+          echo "  ✓ Application code presence"
+          echo "  ✓ Red Hat branding"
+          echo "  ✓ Amber terminology"
+          echo "  ✓ Script permissions"
+          echo ""

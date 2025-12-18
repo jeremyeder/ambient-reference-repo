@@ -1,0 +1,63 @@
+graph TB
+    subgraph Template["Ambient Code Reference Repository (Template)"]
+        subgraph GitHub["GitHub Configuration"]
+            workflows[".github/workflows/<br/>CI/CD Automation"]
+            issues[".github/ISSUE_TEMPLATE/<br/>Bug Reports & Features"]
+            dependabot[".github/dependabot.yml<br/>Dependency Updates"]
+        end
+
+        subgraph Agent["Codebase Agent (CBA)"]
+            agent_config[".claude/agents/<br/>Agent Personality"]
+            agent_context[".claude/context/<br/>Modular Knowledge"]
+            agent_commands[".claude/commands/<br/>Slash Commands"]
+        end
+
+        subgraph Docs["Documentation System"]
+            standard["docs/*.md<br/>(Standard)"]
+            terry["docs/*-terry.md<br/>(Accessible)"]
+            comparison["docs/comparison/<br/>Side-by-Side Viewer"]
+            diagrams["docs/diagrams/<br/>Mermaid Visualizations"]
+            tutorials["docs/tutorials/<br/>Asciinema Demos"]
+        end
+
+        subgraph Scripts["Automation Scripts"]
+            setup["scripts/setup.sh<br/>(<10 min goal)"]
+            validate_mmd["scripts/validate-mermaid.sh<br/>(Diagram Syntax)"]
+            check_pairs["scripts/check-doc-pairs.sh<br/>(Terry Versions)"]
+            lint["scripts/lint-all.sh<br/>(Quality Checks)"]
+        end
+
+        subgraph Quality["Quality Gates"]
+            style_guide["docs/STYLE_GUIDE.md<br/>(ZeroMQ-style)"]
+            board["PROJECT_BOARD.md<br/>(Workflow)"]
+        end
+    end
+
+    %% Relationships
+    workflows -->|validates| diagrams
+    workflows -->|checks| standard
+    workflows -->|checks| terry
+    validate_mmd -->|scans| diagrams
+    check_pairs -->|verifies| standard
+    check_pairs -->|verifies| terry
+    agent_context -->|informs| agent_config
+    standard -->|pair with| terry
+    comparison -->|displays| standard
+    comparison -->|displays| terry
+    setup -->|runs| validate_mmd
+    setup -->|runs| check_pairs
+    style_guide -->|guides| standard
+    style_guide -->|guides| terry
+
+    %% Styling
+    classDef github fill:#2188ff,stroke:#0366d6,stroke-width:2px,color:#fff
+    classDef agent fill:#6f42c1,stroke:#5a32a3,stroke-width:2px,color:#fff
+    classDef docs fill:#28a745,stroke:#22863a,stroke-width:2px,color:#fff
+    classDef scripts fill:#ffd700,stroke:#d4af37,stroke-width:2px,color:#000
+    classDef quality fill:#ff6b6b,stroke:#c92a2a,stroke-width:2px,color:#fff
+
+    class workflows,issues,dependabot github
+    class agent_config,agent_context,agent_commands agent
+    class standard,terry,comparison,diagrams,tutorials docs
+    class setup,validate_mmd,check_pairs,lint scripts
+    class style_guide,board quality
